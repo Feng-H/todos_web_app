@@ -25,9 +25,9 @@ app.get('/api/todos', (req, res) => {
   });
 });
 
-// 2. 添加新待办事项（POST）
+// 2. 添加新待办事项（POST）- 核心修改：新增 createTime 存储
 app.post('/api/todos', (req, res) => {
-  const { content } = req.body;
+  const { content, createTime } = req.body; // 接收前端传递的 createTime
 
   // 验证请求参数
   if (!content || content.trim() === '') {
@@ -40,11 +40,12 @@ app.post('/api/todos', (req, res) => {
       return res.status(500).json({ message: '添加待办失败' });
     }
 
-    // 生成唯一 ID（时间戳确保不重复）
+    // 生成唯一 ID，同时存储前端传递的 createTime（前端已确保是提交时间）
     const newTodo = {
       id: Date.now(),
       content: content.trim(),
-      done: false
+      done: false,
+      createTime: createTime || new Date().toISOString() // 兼容：无传递时用当前时间
     };
 
     // 添加到数据并写入文件

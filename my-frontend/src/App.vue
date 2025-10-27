@@ -50,7 +50,11 @@
               @change="updateTodoStatus(todo)"
               class="todo-checkbox"
             />
-            <div class="todo-content" v-html="todo.content.replace(/\n/g, '<br>')"></div>
+            <div class="todo-content-wrapper">
+              <div class="todo-content" v-html="todo.content.replace(/\n/g, '<br>')"></div>
+              <!-- 新增时间显示 -->
+              <div class="todo-time">{{ formatTime(todo.createTime) }}</div>
+            </div>
             <button @click="deleteTodo(todo.id)" class="delete-btn">删除</button>
           </li>
         </ul>
@@ -78,7 +82,11 @@
               @change="updateTodoStatus(todo)"
               class="todo-checkbox"
             />
-            <div class="todo-content" v-html="todo.content.replace(/\n/g, '<br>')"></div>
+            <div class="todo-content-wrapper">
+              <div class="todo-content" v-html="todo.content.replace(/\n/g, '<br>')"></div>
+              <!-- 新增时间显示 -->
+              <div class="todo-time">{{ formatTime(todo.createTime) }}</div>
+            </div>
             <button @click="deleteTodo(todo.id)" class="delete-btn">删除</button>
           </li>
         </ul>
@@ -114,7 +122,11 @@ const completedCount = computed(() => completedTodos.value.length);
 onMounted(async () => {
   try {
     const res = await axios.get(apiBaseUrl);
-    todoList.value = res.data;
+    // 兼容旧数据（无 createTime 时补充默认时间）
+    todoList.value = res.data.map(todo => ({
+      ...todo,
+      createTime: todo.createTime || new Date().toISOString()
+    }));
   } catch (err) {
     console.error('加载失败：', err);
   }
@@ -127,14 +139,21 @@ const adjustInputHeight = (e) => {
   inputHeight.value = Math.min(textarea.scrollHeight, 120); // 最大高度限制
 };
 
-// 添加待办（支持换行）
+// 添加待办（新增：提交时记录当前时间）
 const addTodo = async () => {
   const content = newTodo.value.trim();
   if (!content) return;
 
+  // 记录当前时间（ISO格式，兼容后续处理）
+  const createTime = new Date().toISOString();
+
   try {
-    const res = await axios.post(apiBaseUrl, { content });
-    todoList.value.push(res.data);
+    const res = await axios.post(apiBaseUrl, { 
+      content,
+      createTime // 新增：传递时间到后端
+    });
+    // 本地也存储时间（确保界面实时显示）
+    todoList.value.push({ ...res.data, createTime });
     newTodo.value = ''; // 清空输入框
     inputHeight.value = 40; // 重置高度
   } catch (err) {
@@ -170,6 +189,18 @@ const clearCompleted = async () => {
   } catch (err) {
     console.error('清空失败：', err);
   }
+};
+
+// 格式化时间显示（示例：2024-05-20 14:30:25）
+const formatTime = (timeStr) => {
+  const date = new Date(timeStr);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hour = String(date.getHours()).padStart(2, '0');
+  const minute = String(date.getMinutes()).padStart(2, '0');
+  const second = String(date.getSeconds()).padStart(2, '0');
+  return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
 };
 </script>
 
@@ -334,9 +365,16 @@ const clearCompleted = async () => {
   cursor: pointer;
 }
 
+/* 待办内容容器：包裹内容和时间 */
+.todo-content-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
 /* 待办内容：明确左对齐 */
 .todo-content {
-  flex: 1;
   font-size: 1rem;
   color: #111827;
   line-height: 1.5;
@@ -344,6 +382,13 @@ const clearCompleted = async () => {
   white-space: pre-wrap;
   text-align: left;
   margin-left: 0;
+}
+
+/* 新增：时间显示样式 */
+.todo-time {
+  font-size: 0.8rem;
+  color: #9ca3af;
+  line-height: 1.2;
 }
 
 /* 删除按钮：默认隐藏，hover 显示 */
